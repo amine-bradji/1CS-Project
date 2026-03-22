@@ -1,12 +1,40 @@
 import { useState } from 'react';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import styles from './loginPage.module.css';
+import api from '../api/axios';
 
 export function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
+
+    const navigate = useNavigate();
+
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+
     function togglePassword() {
         setShowPassword(!showPassword);
     }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault(); // Prevents page reload
+        try {
+            const response = await api.post('accounts/login/', {
+                email: email, // Django usually expects 'username'
+                password: password
+            });
+            
+            localStorage.setItem('access_token', response.data.access);
+            localStorage.setItem('refresh_token', response.data.refresh);
+
+            if (response.status === 200) {
+                navigate('/wow'); // Redirect to dashboard after successful login
+            }
+        } catch (error) {
+            console.error("Login Error:", error.response?.data);
+            navigate('dumbass');
+        }
+    };
+
     return (
         <div className={styles.container}> 
             <div className={styles.loginPage}> 
@@ -16,17 +44,29 @@ export function LoginPage() {
                     <h6 className={styles.appTitle}>Absence Management System</h6> 
                 </div>
 
-                <div className={styles.bodyContainer}>
+                <form className={styles.bodyContainer} onSubmit={handleSubmit}>
 
                     <p className={styles.inputFieldTitle}>ID OR UNIVERSITY EMAIL</p>
                     <div className={styles.inputWrapper}>
                         <img src="/images/@.png" className={styles.inputIcon}/>
-                        <input type="text" placeholder="e.nom@esi-sba.dz" className={styles.inputWrapperText} />
+                        <input 
+                        type="text" 
+                        placeholder="e.nom@esi-sba.dz" 
+                        className={styles.inputWrapperText} 
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)}/>
+
                     </div>
 
                     <p className={styles.inputFieldTitle}>PASSWORD</p>
                     <div className={styles.inputWrapper}>
-                        <input type={showPassword ? 'text' : 'password'} placeholder="••••••••" className={styles.inputWrapperText}/>
+                        <input 
+                        type={showPassword ? 'text' : 'password'} 
+                        placeholder="••••••••" 
+                        className={styles.inputWrapperText} 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)}/>
+
                         <span>
                             <img src="/images/lock.png" className={styles.inputIcon}/>
                             <button type="button" className={styles.eyeButton} onClick={togglePassword}>
@@ -45,7 +85,7 @@ export function LoginPage() {
 
                     </div>
 
-                    <button className={styles.loginButton}>
+                    <button type='submit' className={styles.loginButton}>
                         <img src="/images/exit.png" className="login-icon" />
                         Login
                     </button>
@@ -54,7 +94,7 @@ export function LoginPage() {
                         Technical issues?
                         <a href="mailto:support@example.com" className={styles.supportLink}>Contact Support</a>
                     </div> 
-                </div>
+                </form>
 
 
             </div>
