@@ -16,10 +16,10 @@ export function LoginPage() {
     }
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); // Prevents page reload
+        e.preventDefault(); 
         try {
             const response = await api.post('accounts/login/', {
-                email: email, // Django usually expects 'username'
+                email: email, 
                 password: password
             });
             
