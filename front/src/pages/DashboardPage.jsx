@@ -1,13 +1,14 @@
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import AbsenceTable from '../components/AbsenceTable';
-import { useStudents } from '../context/StudentsContext';
+import { useUsers } from '../context/UsersContext';
 import { useAbsenceRecords } from '../context/AbsenceRecordsContext';
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage({ searchQuery, onSearch, onOpenUserManagementSearch }) {
-    const { students } = useStudents();
+    const { users } = useUsers();
     const { absenceRecords } = useAbsenceRecords();
+    const students = users.filter(user => user.role === 'student'); 
     const totalStudents = students.length;
     const totalAbsences = absenceRecords.length;
     const pendingJustifications = absenceRecords.filter((record) => record.status === 'pending').length;

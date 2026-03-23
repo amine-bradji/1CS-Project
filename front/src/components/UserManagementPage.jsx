@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNotifications } from '../context/NotificationsContext';
-import { useStudents } from '../context/StudentsContext';
+import { useUsers } from '../context/UsersContext';
 import { useDirectoryUsers } from '../context/DirectoryUsersContext';
 import './UserManagementPage.css';
 
@@ -475,7 +475,7 @@ function buildFormValuesFromUser(user) {
 }
 
 export default function UserManagementPage({ initialSearchQuery = '', onInitialSearchApplied }) {
-  const { students, deleteStudent, addStudent, updateStudent } = useStudents();
+  const { users, deleteUsers, addUsers, updateUsers } = useUsers();
   const { directoryUsers, setDirectoryUsers } = useDirectoryUsers();
   const { addNotification } = useNotifications();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
@@ -488,6 +488,8 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
   const [formErrors, setFormErrors] = useState({});
   const rowsPerPage = 10;
   const isEditing = editingUser !== null;
+
+  const students = users?.filter(u => u.role === 'student') || [];
 
   const studentUsers = students.map((student) => ({
     ...student,

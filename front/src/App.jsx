@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
-import Wowzers  from './pages/Wowzers'; // Ensure capitalization matches exactly!
+import Wowzers  from './pages/Wowzers';
 import WrongInfoPage from './pages/WrongInfoPage';
 import DashboardShell from './pages/DashboardShell';
 import { useAuth } from './context/AuthContext';
