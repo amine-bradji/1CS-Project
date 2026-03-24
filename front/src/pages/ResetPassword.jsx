@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import styles from './ResetPassword.module.css'
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 export function ResetPassword() {
     const [showPassword, setShowPassword] = useState(false);
@@ -9,7 +10,9 @@ export function ResetPassword() {
 
     const navigate = useNavigate();
 
+    const { user } = useAuth();
 
+    const [oldPassword, setOldPassword] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     function togglePassword() {
@@ -22,17 +25,46 @@ export function ResetPassword() {
     const passwordsMatch = (password === confirmPassword);
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            const response = await api.post('accounts/login/', {
+        
+        if (!passwordsMatch) {
+            alert("Passwords don't match!");
+            return;
+        }
+        if (!oldPassword.trim()) {
+            alert("Please enter your current password.");
+            return;
+        }
 
-                password: password
+        try {
+            const response = await api.post('accounts/change-password/', {
+                old_password: oldPassword.trim(),
+                new_password: password,
+                confirm_password: confirmPassword
             });
 
-            localStorage.setItem('access_token', response.data.access);
-            localStorage.setItem('refresh_token', response.data.refresh);
+            if (response.status === 200) {
+                // Update stored tokens
+                localStorage.setItem('access_token', response.data.access);
+                localStorage.setItem('refresh_token', response.data.refresh);
 
+                // If backend returns user data (not required), update local authorisation object
+                if (response.data.user) {
+                  const storedUser = JSON.parse(localStorage.getItem('user_info') || '{}');
+                  localStorage.setItem('user_info', JSON.stringify({
+                    ...storedUser,
+                    must_change_password: false,
+                  }));
+                }
+
+                // Redirect by role
+                if (user?.role === 'ADMIN') {
+                    navigate('/dashboard');
+                } else {
+                    navigate('/home');
+                }
+            }
         } catch (error) {
-            console.error("Login Error:", error.response?.data);
+            console.error("Password change error:", error.response?.data || error.message);
             navigate('/dumbahh');
         }
     };
@@ -47,6 +79,17 @@ export function ResetPassword() {
                 </div>
 
                 <form className={styles.bodyContainer} onSubmit={handleSubmit}>
+
+                    <p className={styles.inputFieldTitle}>CURRENT PASSWORD *</p>
+                    <div className={styles.inputWrapper}>
+                        <input
+                            type="password"
+                            placeholder="Current password"
+                            className={styles.inputWrapperText}
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                        />
+                    </div>
 
                     <p className={styles.inputFieldTitle}>NEW PASSWORD*</p>
                     <div className={styles.inputWrapper}>

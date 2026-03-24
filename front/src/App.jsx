@@ -7,7 +7,7 @@ import { useAuth } from './context/AuthContext';
 import './App.css';
 import { ResetPassword } from './pages/ResetPassword';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -15,6 +15,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/home" replace />;
   }
 
   return children;
@@ -26,7 +30,16 @@ const PublicRoute = ({ children }) => {
   if (loading) return null;
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    // Admin should always go to dashboard even if must_change_password is set in backend
+    if (user.role === 'ADMIN') {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    if (user.must_change_password) {
+      return <Navigate to="/ResetPassword" replace />;
+    }
+
+    return <Navigate to="/home" replace />;
   }
 
   return children;
@@ -46,21 +59,37 @@ export default function App() {
       />
 
       {/* Dashboard is Protected: If not logged in, redirect to login */}
-      <Route 
-        path="/dashboard" 
+          <Route
+        path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ 'ADMIN' ]}>
             <DashboardShell />
           </ProtectedRoute>
-        } 
+        }
       />
 
-      <Route path="/ResetPassword" element={<ResetPassword />} />
+      <Route
+        path="/home"
+        element={
+          <ProtectedRoute>
+            <Wowzers />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/ResetPassword"
+        element={
+          <ProtectedRoute>
+            <ResetPassword />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/wow" element={<Wowzers />} />
       <Route path="/dumbahh" element={<WrongInfoPage />} />
 
-      {/* Catch-all: Redirect unknown URLs to dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Catch-all: Redirect unknown URLs to home/dashboard based on authentication */}
+      <Route path="*" element={<ProtectedRoute><Navigate to="/home" replace /></ProtectedRoute>} />
     </Routes>
   );
 }

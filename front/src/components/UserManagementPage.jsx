@@ -75,6 +75,10 @@ function formatLabel(value) {
   return labels[value] || value || '';
 }
 
+function roleIs(user, roleName) {
+  return String(user.role || '').toLowerCase() === String(roleName || '').toLowerCase();
+}
+
 function getAvatarTone(user) {
   if (user.avatarTone) {
     return user.avatarTone;
@@ -118,7 +122,9 @@ function buildGeneratedEmail(name) {
 }
 
 function getRoleSectionMeta(role) {
-  if (!role) {
+  const normalizedRole = String(role || '').toLowerCase();
+
+  if (!normalizedRole) {
     return {
       title: 'Account Details',
       subtitle: 'Choose a role to unlock the fields below',
@@ -126,7 +132,7 @@ function getRoleSectionMeta(role) {
     };
   }
 
-  if (role === 'teacher') {
+  if (normalizedRole === 'teacher') {
     return {
       title: 'Teaching Details',
       subtitle: 'Specific fields for the Teacher role',
@@ -134,7 +140,7 @@ function getRoleSectionMeta(role) {
     };
   }
 
-  if (role === 'scolarite') {
+  if (normalizedRole === 'scolarite') {
     return {
       title: 'School Office Details',
       subtitle: 'Specific fields for the Scolarite role',
@@ -142,7 +148,7 @@ function getRoleSectionMeta(role) {
     };
   }
 
-  if (role === 'admin') {
+  if (normalizedRole === 'admin') {
     return {
       title: 'Administrative Details',
       subtitle: 'Specific fields for the Admin role',
@@ -196,7 +202,8 @@ function countCompletedValues(values) {
 }
 
 function getSetupProgress(role, values) {
-  if (!role) {
+  const normalizedRole = String(role || '').toLowerCase();
+  if (!normalizedRole) {
     return 0;
   }
 
@@ -207,7 +214,7 @@ function getSetupProgress(role, values) {
     values.phone,
   ]);
 
-  if (role === 'student') {
+  if (normalizedRole === 'student') {
     const completedStudentFields = countCompletedValues([
       values.registrationNumber,
       values.promotion,
@@ -291,15 +298,17 @@ function getRequiredFieldLabels() {
 }
 
 function getIdFieldName(role) {
-  if (role === 'student') {
+  const normalizedRole = String(role || '').toLowerCase();
+
+  if (normalizedRole === 'student') {
     return 'registrationNumber';
   }
 
-  if (role === 'scolarite') {
+  if (normalizedRole === 'scolarite') {
     return 'serviceUnit';
   }
 
-  if (role === 'teacher' || role === 'admin') {
+  if (normalizedRole === 'teacher' || normalizedRole === 'admin') {
     return 'employeeId';
   }
 
@@ -307,15 +316,17 @@ function getIdFieldName(role) {
 }
 
 function getFormIdValue(role, values) {
-  if (role === 'student') {
+  const normalizedRole = String(role || '').toLowerCase();
+
+  if (normalizedRole === 'student') {
     return values.registrationNumber;
   }
 
-  if (role === 'scolarite') {
+  if (normalizedRole === 'scolarite') {
     return values.serviceUnit;
   }
 
-  if (role === 'teacher' || role === 'admin') {
+  if (normalizedRole === 'teacher' || normalizedRole === 'admin') {
     return values.employeeId;
   }
 
@@ -323,11 +334,12 @@ function getFormIdValue(role, values) {
 }
 
 function getRequiredFieldNames(role, values, isEditing) {
+  const normalizedRole = String(role || '').toLowerCase();
   const commonFields = isEditing
     ? ['firstName', 'lastName', 'phone']
     : ['firstName', 'lastName', 'password', 'phone'];
 
-  if (role === 'student') {
+  if (normalizedRole === 'student') {
     return [
       ...commonFields,
       'registrationNumber',
@@ -336,15 +348,15 @@ function getRequiredFieldNames(role, values, isEditing) {
     ];
   }
 
-  if (role === 'teacher') {
+  if (normalizedRole === 'teacher') {
     return [...commonFields, 'department'];
   }
 
-  if (role === 'scolarite') {
+  if (normalizedRole === 'scolarite') {
     return commonFields;
   }
 
-  if (role === 'admin') {
+  if (normalizedRole === 'admin') {
     return commonFields;
   }
 
@@ -382,12 +394,14 @@ function validateFormFields(role, values, isEditing, users = [], editingUser = n
     errors.phone = phoneError;
   }
 
+  const normalizedRole = String(role || '').toLowerCase();
+
   // For students, check for duplicate registration number
-  if (role === 'student' && isCompletedValue(values.registrationNumber)) {
+  if (normalizedRole === 'student' && isCompletedValue(values.registrationNumber)) {
     const duplicateUser = users.find(
       (user) =>
         user.id !== editingUser?.id
-        && user.role === 'student'
+        && String(user.role || '').toLowerCase() === 'student'
         && normalizeIdValue(user.idNumber || '') === normalizeIdValue(values.registrationNumber)
     );
 
@@ -401,7 +415,7 @@ function validateFormFields(role, values, isEditing, users = [], editingUser = n
 }
 
 function buildFormValuesFromUser(user) {
-  if (user.role === 'student') {
+  if (roleIs(user, 'student')) {
     const promotion = getStudentPromotion(user);
 
     return {
@@ -548,7 +562,7 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
 
   function handleOpenEditView(user) {
     setEditingUser(user);
-    setSelectedRole(user.role);
+    setSelectedRole(String(user.role || '').toLowerCase());
     setFormValues(buildFormValuesFromUser(user));
     setFormErrors({});
     setShowPassword(false);
@@ -622,20 +636,29 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
         userData.password = formValues.password.trim();
       }
 
+      const normalizedRole = String(selectedRole || '').toLowerCase();
+
       // Add role-specific fields - MUST MATCH BACKEND SCHEMA
-      if (selectedRole === 'student') {
+      if (normalizedRole === 'student') {
         // Backend expects: registration_number, year, speciality
         userData.registration_number = formValues.registrationNumber.trim();
         userData.year = 1; // TODO: Map from promotion to year (1CPI/2CPI=1, 1CS/2CS/3CS=2-4)
-        userData.speciality = formValues.specialty.trim();
+        
+        // Speciality is required by backend for all students
+        if (studentHasSpecialty(formValues.promotion)) {
+          userData.speciality = formValues.specialty.trim();
+        } else {
+          userData.speciality = 'N/A'; // Default value for promotions that don't have specialties
+        }
+        
         console.log('Student fields:', {
           registration_number: userData.registration_number,
           year: userData.year,
-          speciality: userData.speciality
+          speciality: userData.speciality || 'Not required for this promotion'
         });
       }
 
-      if (selectedRole === 'teacher') {
+      if (normalizedRole === 'teacher') {
         // Backend expects: field, department
         userData.field = formValues.department.trim();
         userData.department = formValues.department.trim();
@@ -673,13 +696,39 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
       if (err.response?.data) {
         const responseData = err.response.data;
         
+        // Check if response is HTML (Django debug error page)
+        if (typeof responseData === 'string' && responseData.includes('IntegrityError')) {
+          console.log('Detected Django IntegrityError HTML response');
+          // Extract error message from HTML
+          const integrityErrorMatch = responseData.match(/<pre class="exception_value">([^<]+)<\/pre>/);
+          if (integrityErrorMatch) {
+            const errorText = integrityErrorMatch[1];
+            console.error('Extracted IntegrityError:', errorText);
+            
+            // Parse specific integrity errors
+            if (errorText.includes('Duplicate entry') && errorText.includes('registration_number')) {
+              const regNumberMatch = errorText.match(/Duplicate entry '([^']+)' for key 'accounts_studentprofile\.registration_number'/);
+              if (regNumberMatch) {
+                errorMsg = `Registration number '${regNumberMatch[1]}' is already in use.`;
+                fieldErrors.registrationNumber = 'This registration number is already taken.';
+              } else {
+                errorMsg = 'Registration number is already in use.';
+                fieldErrors.registrationNumber = 'This registration number is already taken.';
+              }
+            } else {
+              errorMsg = 'Database integrity error occurred.';
+            }
+          } else {
+            errorMsg = 'Database error occurred while saving.';
+          }
+        }
         // Check for error message at top level
-        if (responseData.error) {
+        else if (responseData.error) {
           errorMsg = responseData.error;
         }
         
         // Check for field-level errors in 'details' object (Django custom format)
-        if (responseData.details && typeof responseData.details === 'object') {
+        else if (responseData.details && typeof responseData.details === 'object') {
           console.log('Backend field details:', responseData.details);
           Object.keys(responseData.details).forEach(field => {
             const fieldError = responseData.details[field];
@@ -738,7 +787,9 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
       );
     }
 
-    if (selectedRole === 'teacher') {
+    const normalizedRole = selectedRole.toLowerCase();
+
+    if (normalizedRole === 'teacher') {
       return (
         <>
           <label className="create-field">
@@ -758,7 +809,7 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
       );
     }
 
-    if (selectedRole === 'scolarite') {
+    if (normalizedRole === 'scolarite') {
       return (
         <div className="create-role-placeholder">
           No additional fields required for Scolarite role.
@@ -766,7 +817,7 @@ export default function UserManagementPage({ initialSearchQuery = '', onInitialS
       );
     }
 
-    if (selectedRole === 'admin') {
+    if (normalizedRole === 'admin') {
       return (
         <div className="create-role-placeholder">
           No additional fields required for Admin role.

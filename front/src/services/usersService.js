@@ -93,7 +93,11 @@ export const usersService = {
                 ? `accounts/users/?${queryString}`
                 : 'accounts/users/';
 
+            console.log('usersService: Fetching from endpoint:', endpoint);
             const response = await api.get(endpoint);
+
+            console.log('usersService: Response status:', response.status);
+            console.log('usersService: Response data:', response.data);
 
             if (response.status === 200) {
                 return response.data; // { count, users }

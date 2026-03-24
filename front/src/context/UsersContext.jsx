@@ -53,9 +53,14 @@ export function UsersProvider({ children }) {
     setIsLoading(true);
     setError(null);
     try {
+      console.log('UsersContext: Fetching all users with filters:', filters);
       const response = await usersService.getAllUsers(filters);
+      console.log('UsersContext: Response received:', response);
+      console.log('UsersContext: Response.users:', response.users);
       const normalizedUsers = response.users.map(normalizeUserData);
+      console.log('UsersContext: Normalized users:', normalizedUsers);
       setUsers(normalizedUsers);
+      console.log('UsersContext: Users state updated, count:', normalizedUsers.length);
       return normalizedUsers;
     } catch (err) {
       const errorMessage = err.response?.data?.error || 'Failed to fetch users';

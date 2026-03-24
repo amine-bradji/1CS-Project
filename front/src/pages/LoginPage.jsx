@@ -20,20 +20,28 @@ export function LoginPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await api.post('accounts/login/', {
-                email: email, 
-                password: password
-            });
+            console.log("Attempting login for:", email);
             
-            localStorage.setItem('access_token', response.data.access);
-            localStorage.setItem('refresh_token', response.data.refresh);
-
-            if (response.status === 200) {
+            // Use the AuthContext login method
+            const response = await login(email, password);
+            
+            console.log("Login successful, user data:", response.user);
+            
+            // Check if user must change password (admin bypasses forced-reset behavior)
+            if (response.user.must_change_password && response.user.role !== 'ADMIN') {
+                console.log("User must change password, redirecting to reset password");
+                navigate('/ResetPassword');
+            } else if (response.user.role === 'ADMIN') {
+                console.log("Admin login, redirecting to dashboard");
                 navigate('/dashboard');
+            } else {
+                console.log("Non-admin login, redirecting to home placeholder");
+                navigate('/home');
             }
+            
         } catch (error) {
-            console.error("Login Error:", error.response);
-            // but maybe add a toast notification for real errors!
+            console.error("Login Error:", error.response?.data || error.message);
+            // Navigate to error page on login failure
             navigate('/dumbahh');
         }
     };
