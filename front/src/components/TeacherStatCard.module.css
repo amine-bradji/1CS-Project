@@ -1,0 +1,27 @@
+.card {
+  padding: 18px 20px;
+  border-radius: 10px;
+  background: #f8fbff;
+  border: 1px solid var(--teacher-border, #e3e8f0);
+}
+
+.label {
+  display: block;
+  color: var(--teacher-muted, #8f9aae);
+  font-weight: 600;
+  font-size: 0.94rem;
+}
+
+.value {
+  display: block;
+  margin-top: 14px;
+  font-size: clamp(2rem, 3vw, 2.45rem);
+  line-height: 1;
+  color: var(--teacher-text, #1b2538);
+}
+
+.meta {
+  margin-top: 8px;
+  color: var(--teacher-muted, #8f9aae);
+  font-size: 0.84rem;
+}

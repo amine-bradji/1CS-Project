@@ -376,8 +376,6 @@ function matchesScheduleFilters(session, filters = {}) {
   });
 }
 
-// Frontend handoff point for schedule management.
-// Backend can wire these endpoints without changing the page component contract.
 export async function fetchScheduleMetadata() {
   if (TEMP_FRONTEND_PREVIEW_MODE) {
     return createEmptyScheduleMetadata();

@@ -9,25 +9,15 @@ import { useEffect } from 'react';
 
 export default function DashboardPage({ searchQuery, onSearch, onOpenUserManagementSearch }) {
     const { locale, t } = useAppPreferences();
-    const { users, fetchAllUsers, isLoading } = useUsers();
+    const { users, fetchAllUsers } = useUsers();
     const { absenceRecords } = useAbsenceRecords();
     
-    // Fetch all users on component mount
     useEffect(() => {
-      console.log('DashboardPage: Fetching users...');
-      fetchAllUsers()
-        .then((fetchedUsers) => {
-          console.log('DashboardPage: Users fetched successfully:', fetchedUsers);
-        })
-        .catch((err) => {
-          console.error('DashboardPage: Failed to fetch users:', err);
-        });
+      fetchAllUsers().catch(() => {});
     }, [fetchAllUsers]);
     
-    console.log('DashboardPage: Current users state:', users);
     const students = users.filter((user) => String(user.role || '').toUpperCase() === 'STUDENT');
     const totalStudents = students.length;
-    console.log('DashboardPage: Total students calculated:', totalStudents);
     const totalAbsences = absenceRecords.length;
     const pendingJustifications = absenceRecords.filter((record) => record.status === 'pending').length;
     const stats = [

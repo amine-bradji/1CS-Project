@@ -142,7 +142,6 @@
 }
 
 .alert-panel,
-/* Notification panel */
 .notif-panel {
   position: absolute;
   top: calc(100% + 10px);

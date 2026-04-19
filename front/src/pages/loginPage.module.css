@@ -65,7 +65,6 @@
     flex-direction: column;
     align-items: center;
     width: 100%;
-    /* Ensure it fills the login box */
     padding: 0 40px;
     box-sizing: border-box;
 }
@@ -78,7 +77,6 @@
     color: #001B4D;
     opacity: 0.7;
     font-weight: bold;
-    /* Note: 'font: Lexend bold' is invalid CSS syntax */
     font-family: 'Lexend', sans-serif;
     font-size: 12px;
     letter-spacing: 0.6px;
@@ -94,17 +92,11 @@
 .inputWrapperText {
     width: 100%;
     height: 45px;
-    /* Taller inputs look more modern */
     background-color: rgba(255, 255, 255, 0.6);
-    /* Light gray background like the image */
     border: 1px solid transparent;
-    /* No harsh border */
     border-radius: 12px;
-    /* Very rounded corners */
     padding-left: 45px;
-    /* Room for the icon */
     padding-right: 45px;
-    /* Room for the eye icon */
     font-size: 14px;
     font-family: 'Lexend', sans-serif;
     color: #1e293b;
@@ -126,7 +118,6 @@
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
-    /* Slightly bigger icons */
     pointer-events: none;
 }
 
@@ -191,17 +182,14 @@
 .checkbox {
     appearance: none;
     -webkit-appearance: none;
-    /* For Safari */
     margin: 0px;
     padding: 0px;
     width: 16px;
     height: 16px;
     background-color: #f1f5f9;
-    /* Match your input background */
     border: 2px solid transparent;
     border-radius: 4px;
     box-sizing: border-box;
-    /* The magic property */
     display: inline-block;
     position: relative;
     transition: background-color 0.1s all 0.1s;
@@ -221,18 +209,13 @@
     content: '';
     position: absolute;
 
-    /* Create an 'L' shape */
     width: 4px;
     height: 8px;
     border: solid #001B4D;
-    /* Your dark blue color */
     border-width: 0 2px 2px 0;
-    /* Only show bottom and right borders */
 
-    /* Rotate the 'L' to look like a checkmark */
     transform: rotate(45deg) scale(0);
 
-    /* Position it in the center */
     left: 3px;
     top: 0px;
 
@@ -243,7 +226,6 @@
 .checkbox:checked::after {
     opacity: 1;
     transform: rotate(45deg) scale(1);
-    /* "Pops" into view */
 }
 
 .checkbox:active::after {

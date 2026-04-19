@@ -282,6 +282,12 @@
   white-space: nowrap;
 }
 
+.passwordActionRow {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
+}
+
 .deadlineGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 138px;
