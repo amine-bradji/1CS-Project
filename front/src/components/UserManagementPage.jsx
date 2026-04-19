@@ -318,7 +318,6 @@ function validateFormFields(role, values, isEditing, users = [], editingUser = n
 
   const normalizedRole = String(role || '').toLowerCase();
 
-  // For students, check for duplicate registration number
   if (normalizedRole === 'student' && isCompletedValue(values.registrationNumber)) {
     const duplicateUser = users.find(
       (user) =>
@@ -385,7 +384,6 @@ export default function UserManagementPage({
   const rowsPerPage = 10;
   const isEditing = editingUser !== null;
 
-  // Fetch all users on component mount
   useEffect(() => {
     fetchAllUsers().catch((err) => {
       console.error('Failed to fetch users:', err);
@@ -618,7 +616,6 @@ export default function UserManagementPage({
         avatarUrl: formValues.profilePicture || editingUser?.profilePicture || editingUser?.profile_picture || '',
       };
 
-      // Add password only for new users
       if (!isEditing) {
         userData.password = formValues.password.trim();
       } else {
@@ -627,19 +624,16 @@ export default function UserManagementPage({
 
       const normalizedRole = String(selectedRole || '').toLowerCase();
 
-      // Add role-specific fields - MUST MATCH BACKEND SCHEMA
       if (normalizedRole === 'student') {
-        // Backend expects: registration_number, year, speciality
         userData.registration_number = formValues.registrationNumber.trim();
         userData.promotion = formValues.promotion;
         userData.year = getYearValueFromPromotion(formValues.promotion);
         userData.department = getStudentDepartmentFromPromotion(formValues.promotion);
         
-        // Speciality is required by backend for all students
         if (studentHasSpecialty(formValues.promotion)) {
           userData.speciality = formValues.specialty.trim();
         } else {
-          userData.speciality = 'N/A'; // Default value for promotions that don't have specialties
+          userData.speciality = 'N/A';
         }
         
         console.log('Student fields:', {
@@ -651,7 +645,6 @@ export default function UserManagementPage({
       }
 
       if (normalizedRole === 'teacher') {
-        // Backend expects: field, department
         userData.field = formValues.department.trim();
         userData.department = formValues.department.trim();
       }
@@ -684,23 +677,19 @@ export default function UserManagementPage({
       console.error('Form submission error - Full error:', err);
       console.error('Form submission error - Response data:', err.response?.data);
       
-      // Handle different error response formats
       let errorMsg = t('userManagement.failedSave');
       let fieldErrors = {};
       
       if (err.response?.data) {
         const responseData = err.response.data;
         
-        // Check if response is HTML (Django debug error page)
         if (typeof responseData === 'string' && responseData.includes('IntegrityError')) {
           console.log('Detected Django IntegrityError HTML response');
-          // Extract error message from HTML
           const integrityErrorMatch = responseData.match(/<pre class="exception_value">([^<]+)<\/pre>/);
           if (integrityErrorMatch) {
             const errorText = integrityErrorMatch[1];
             console.error('Extracted IntegrityError:', errorText);
             
-            // Parse specific integrity errors
             if (errorText.includes('Duplicate entry') && errorText.includes('registration_number')) {
               const regNumberMatch = errorText.match(/Duplicate entry '([^']+)' for key 'accounts_studentprofile\.registration_number'/);
               if (regNumberMatch) {
@@ -717,12 +706,10 @@ export default function UserManagementPage({
             errorMsg = t('userManagement.failedSave');
           }
         }
-        // Check for error message at top level
         else if (responseData.error) {
           errorMsg = responseData.error;
         }
         
-        // Check for field-level errors in 'details' object (Django custom format)
         else if (responseData.details && typeof responseData.details === 'object') {
           console.log('Backend field details:', responseData.details);
           Object.keys(responseData.details).forEach(field => {
@@ -739,7 +726,6 @@ export default function UserManagementPage({
             }
           });
         }
-        // Check for field-level errors at top level (standard DRF format)
         else if (typeof responseData === 'object' && !Array.isArray(responseData)) {
           Object.keys(responseData).forEach(field => {
             if (field !== 'error' && field !== 'detail') {
@@ -820,7 +806,6 @@ export default function UserManagementPage({
       );
     }
 
-    // Student role
     return (
       <>
         <label className="create-field">

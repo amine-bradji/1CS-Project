@@ -7,6 +7,8 @@ function normalizeNamePart(value) {
     .trim();
 }
 
+const TITLE_PREFIXES = new Set(['dr', 'prof', 'pr', 'mr', 'mrs', 'ms']);
+
 export function buildUserEmail(firstName, lastName) {
   const firstNameParts = normalizeNamePart(firstName)
     .split(/\s+/)
@@ -16,9 +18,48 @@ export function buildUserEmail(firstName, lastName) {
     .filter(Boolean);
 
   const initials = firstNameParts
+    .slice(0, 2)
     .map((part) => part[0])
     .join('');
   const familyName = lastNameParts.join('');
+
+  if (!initials && !familyName) {
+    return '';
+  }
+
+  if (!initials) {
+    return `${familyName}@esi-sba.dz`;
+  }
+
+  if (!familyName) {
+    return `${initials}@esi-sba.dz`;
+  }
+
+  return `${initials}.${familyName}@esi-sba.dz`;
+}
+
+export function buildInstitutionalEmailFromFullName(fullName) {
+  const nameParts = normalizeNamePart(fullName)
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!nameParts.length) {
+    return '';
+  }
+
+  const partsWithoutTitle = TITLE_PREFIXES.has(nameParts[0])
+    ? nameParts.slice(1)
+    : nameParts;
+
+  if (!partsWithoutTitle.length) {
+    return '';
+  }
+
+  const familyName = partsWithoutTitle[partsWithoutTitle.length - 1] || '';
+  const givenNameParts = partsWithoutTitle.slice(0, -1);
+  const firstInitial = givenNameParts[0]?.[0] || '';
+  const middleInitial = givenNameParts[1]?.[0] || '';
+  const initials = `${firstInitial}${middleInitial}`;
 
   if (!initials && !familyName) {
     return '';

@@ -5,9 +5,11 @@ import styles from './SystemSettingsPage.module.css';
 import UserPasswordPlaceholderDialog from './UserPasswordPlaceholderDialog';
 import {
   createEmptySystemSettings,
+  changeSystemSettingsPassword,
   fetchSystemSettings,
   normalizeSystemSettingsPayload,
 } from '../services/systemSettingsEndpoint';
+import { buildUserEmail } from '../utils/userEmail';
 
 const SECTION_IDS = [
   'admin-account',
@@ -40,6 +42,39 @@ function getClosestVisibleSection(sectionRefs) {
     })
     .filter(Boolean)
     .sort((firstSection, secondSection) => firstSection.distance - secondSection.distance)[0];
+}
+
+function splitFullName(fullName) {
+  const nameParts = String(fullName || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (nameParts.length === 0) {
+    return {
+      firstName: '',
+      familyName: '',
+    };
+  }
+
+  if (nameParts.length === 1) {
+    return {
+      firstName: nameParts[0],
+      familyName: '',
+    };
+  }
+
+  return {
+    firstName: nameParts.slice(0, -1).join(' '),
+    familyName: nameParts[nameParts.length - 1],
+  };
+}
+
+function composeFullName(firstName, familyName) {
+  return [String(firstName || '').trim(), String(familyName || '').trim()]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 }
 
 export default function SystemSettingsPage() {
@@ -75,7 +110,12 @@ export default function SystemSettingsPage() {
         }
 
         const normalizedSettings = normalizeSystemSettingsPayload(response);
-        const nextAdminDisplayName = normalizedSettings.adminAccount.fullName || adminDisplayName;
+        const nameSeed = normalizedSettings.adminAccount.fullName || adminDisplayName;
+        const parsedName = splitFullName(nameSeed);
+        const nextFirstName = normalizedSettings.adminAccount.firstName || parsedName.firstName;
+        const nextFamilyName = normalizedSettings.adminAccount.familyName || parsedName.familyName;
+        const nextAdminDisplayName = composeFullName(nextFirstName, nextFamilyName) || nameSeed;
+        const nextAdminEmail = buildUserEmail(nextFirstName, nextFamilyName) || normalizedSettings.adminAccount.email;
         const nextLanguage = normalizedSettings.adminAccount.preferredLanguage || language;
         const nextPhoto = normalizedSettings.adminAccount.profilePhotoUrl || adminPhotoUrl;
 
@@ -83,7 +123,10 @@ export default function SystemSettingsPage() {
           ...normalizedSettings,
           adminAccount: {
             ...normalizedSettings.adminAccount,
+            firstName: nextFirstName,
+            familyName: nextFamilyName,
             fullName: nextAdminDisplayName,
+            email: nextAdminEmail,
             preferredLanguage: nextLanguage,
             profilePhotoUrl: nextPhoto,
           },
@@ -103,11 +146,22 @@ export default function SystemSettingsPage() {
         }
       } catch {
         if (isMounted) {
+          const parsedFallbackName = splitFullName(adminDisplayName);
+
           setSettingsState((currentState) => ({
             ...createEmptySystemSettings(),
             adminAccount: {
               ...currentState.adminAccount,
-              fullName: adminDisplayName,
+              firstName: currentState.adminAccount.firstName || parsedFallbackName.firstName,
+              familyName: currentState.adminAccount.familyName || parsedFallbackName.familyName,
+              fullName: composeFullName(
+                currentState.adminAccount.firstName || parsedFallbackName.firstName,
+                currentState.adminAccount.familyName || parsedFallbackName.familyName,
+              ) || adminDisplayName,
+              email: buildUserEmail(
+                currentState.adminAccount.firstName || parsedFallbackName.firstName,
+                currentState.adminAccount.familyName || parsedFallbackName.familyName,
+              ) || currentState.adminAccount.email,
               preferredLanguage: language,
               profilePhotoUrl: adminPhotoUrl,
             },
@@ -162,6 +216,30 @@ export default function SystemSettingsPage() {
   }
 
   function updateAdminAccountField(fieldName, nextValue) {
+    if (fieldName === 'firstName' || fieldName === 'familyName') {
+      const nextFirstName = fieldName === 'firstName'
+        ? nextValue
+        : (settingsState.adminAccount.firstName || '');
+      const nextFamilyName = fieldName === 'familyName'
+        ? nextValue
+        : (settingsState.adminAccount.familyName || '');
+      const nextAdminDisplayName = composeFullName(nextFirstName, nextFamilyName);
+      const nextEmail = buildUserEmail(nextFirstName, nextFamilyName) || settingsState.adminAccount.email;
+
+      setSettingsState((currentState) => ({
+        ...currentState,
+        adminAccount: {
+          ...currentState.adminAccount,
+          firstName: nextFirstName,
+          familyName: nextFamilyName,
+          fullName: nextAdminDisplayName,
+          email: nextEmail,
+        },
+      }));
+      setAdminDisplayName(nextAdminDisplayName);
+      return;
+    }
+
     setSettingsState((currentState) => ({
       ...currentState,
       adminAccount: {
@@ -239,6 +317,13 @@ export default function SystemSettingsPage() {
   function handleRemovePhoto() {
     updateAdminAccountField('profilePhotoUrl', '');
     setAdminPhotoUrl('');
+  }
+
+  async function handlePasswordChange({ currentPassword, newPassword }) {
+    await changeSystemSettingsPassword({
+      currentPassword,
+      newPassword,
+    });
   }
 
   const sectionItems = [
@@ -360,12 +445,22 @@ export default function SystemSettingsPage() {
 
               <div className={styles.fieldGrid}>
                 <label className={styles.field}>
-                  <span className={styles.fieldLabel}>{t('settings.fullName')}</span>
+                  <span className={styles.fieldLabel}>{t('settings.familyName', 'Family Name')}</span>
                   <input
                     type="text"
                     className={styles.input}
-                    value={settingsState.adminAccount.fullName}
-                    onChange={(event) => updateAdminAccountField('fullName', event.target.value)}
+                    value={settingsState.adminAccount.familyName || ''}
+                    onChange={(event) => updateAdminAccountField('familyName', event.target.value)}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>{t('settings.firstName', 'First Name')}</span>
+                  <input
+                    type="text"
+                    className={styles.input}
+                    value={settingsState.adminAccount.firstName || ''}
+                    onChange={(event) => updateAdminAccountField('firstName', event.target.value)}
                   />
                 </label>
 
@@ -375,7 +470,7 @@ export default function SystemSettingsPage() {
                     type="email"
                     className={styles.input}
                     value={settingsState.adminAccount.email}
-                    onChange={(event) => updateAdminAccountField('email', event.target.value)}
+                    readOnly
                   />
                 </label>
 
@@ -415,24 +510,16 @@ export default function SystemSettingsPage() {
                   </select>
                 </label>
 
-                <label className={styles.field}>
-                  <span className={styles.fieldLabel}>{t('settings.password')}</span>
-                  <div className={styles.passwordShell}>
-                    <input
-                      type="password"
-                      className={styles.input}
-                      value={settingsState.adminAccount.passwordMask}
-                      readOnly
-                    />
-                    <button
-                      type="button"
-                      className={styles.inlineActionButton}
-                      onClick={() => setShowPasswordDialog(true)}
-                    >
-                      {t('settings.changePassword')}
-                    </button>
-                  </div>
-                </label>
+              </div>
+
+              <div className={styles.passwordActionRow}>
+                <button
+                  type="button"
+                  className={styles.inlineActionButton}
+                  onClick={() => setShowPasswordDialog(true)}
+                >
+                  {t('settings.changePassword')}
+                </button>
               </div>
             </div>
           </section>
@@ -650,6 +737,8 @@ export default function SystemSettingsPage() {
           title={t('settings.changePassword')}
           currentPasswordLabel={t('settings.currentPassword')}
           newPasswordLabel={t('settings.newPassword')}
+          onSubmit={handlePasswordChange}
+          submitLabel={t('settings.changePassword')}
           closeLabel={t('settings.close')}
           closeAriaLabel={t('settings.changePassword')}
           onClose={() => setShowPasswordDialog(false)}
