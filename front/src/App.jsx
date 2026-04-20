@@ -7,6 +7,7 @@ import { useAuth } from './context/AuthContext';
 import './App.css';
 import { ResetPassword } from './pages/ResetPassword';
 import { ContactSupport } from './pages/ContactSupport';
+import { LiveAttendancePage1 } from './pages/LiveAttendancePage1';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -92,6 +93,18 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+
+      <Route
+        path="/LiveAttendancePage1"
+        element={
+          <ProtectedRoute>
+            <LiveAttendancePage1 />
+          </ProtectedRoute>
+
+        }
+      />
+
       <Route path="/wow" element={<Wowzers />} />
       <Route path="/dumbahh" element={<WrongInfoPage />} />
 
