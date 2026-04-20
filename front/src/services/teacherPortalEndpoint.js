@@ -450,11 +450,37 @@ function buildRequestParams(entries = {}) {
 }
 
 export async function fetchTeacherDashboardOverview() {
-  return readEndpointData({
-    getPreviewData: createEmptyTeacherDashboardOverview,
-    request: () => api.get(TEACHER_PORTAL_ENDPOINTS.dashboardOverview),
-    normalize: normalizeTeacherDashboardOverview,
-  });
+  try {
+    const response = await api.get('schedules/sessions/');
+    const rawSessions = Array.isArray(response.data?.results) ? response.data.results : response.data;
+    
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const todaySessions = rawSessions.filter(s => s.day === today);
+    
+    return {
+      summary: {
+        totalSessionsToday: todaySessions.length,
+        completedSessions: 0,
+        remainingSessions: todaySessions.length,
+        absencesThisWeek: 0,
+        makeUpSessions: 0,
+        urgentAlertsCount: 0,
+      },
+      sessions: todaySessions.map(s => ({
+        id: String(s.id),
+        title: s.title || s.session_name || 'Session',
+        room: s.room || 'TBD',
+        groupLabel: (s.assigned_groups || []).join(', ') || 'General',
+        startTime: s.start_time,
+        endTime: s.end_time,
+        status: 'upcoming',
+        statusLabel: 'Upcoming'
+      }))
+    };
+  } catch (error) {
+    console.error('Failed to load dashboard overview', error);
+    return createEmptyTeacherDashboardOverview();
+  }
 }
 
 export async function fetchTeacherYearModules(academicYear = '') {

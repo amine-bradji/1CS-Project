@@ -15,6 +15,11 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    // Restore session from localStorage so page refreshes don't log the user out
+    const storedUser = authService.getUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
     setLoading(false);
   }, []);
 

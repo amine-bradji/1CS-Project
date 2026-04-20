@@ -11,9 +11,13 @@ const LEGACY_SEEDED_SESSION_IDS = new Set([
 ]);
 
 export const SCHEDULES_ENDPOINTS = {
-  sessions: '/schedules/sessions/',
-  sessionDetail: (sessionId) => `/schedules/sessions/${sessionId}/`,
-  metadata: '/schedules/sessions/metadata/',
+  sessions: 'schedules/sessions/',
+  sessionDetail: (sessionId) => `schedules/sessions/${sessionId}/`,
+  sessionStudents: (sessionId) => `schedules/sessions/${sessionId}/students/`,
+  startAttendance: (sessionId) => `schedules/sessions/${sessionId}/start_attendance/`,
+  attendanceDetail: (recordId) => `schedules/attendance/${recordId}/`,
+  instanceDetail: (instanceId) => `schedules/instances/${instanceId}/`,
+  users: 'accounts/users/',
 };
 
 const DEFAULT_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
@@ -136,6 +140,10 @@ function normalizeGroupList(groups) {
 }
 
 function normalizeAssignedGroups(payload) {
+  if (Array.isArray(payload.assigned_groups)) {
+    return normalizeStringList(payload.assigned_groups);
+  }
+
   if (Array.isArray(payload.group_codes)) {
     return normalizeStringList(payload.group_codes);
   }
@@ -211,42 +219,7 @@ export function createEmptyScheduleMetadata() {
   };
 }
 
-function readPreviewSessions() {
-  try {
-    const rawValue = localStorage.getItem(STORAGE_KEY);
-
-    if (!rawValue) {
-      return [];
-    }
-
-    const parsedValue = JSON.parse(rawValue);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-
-    const sanitizedSessions = parsedValue.filter(
-      (session) => !LEGACY_SEEDED_SESSION_IDS.has(String(session?.id || ''))
-    );
-
-    if (sanitizedSessions.length !== parsedValue.length) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizedSessions));
-    }
-
-    return sanitizedSessions;
-  } catch (error) {
-    console.error('Failed to read preview schedule sessions:', error);
-    return [];
-  }
-}
-
-function writePreviewSessions(sessions) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  } catch (error) {
-    console.error('Failed to save preview schedule sessions:', error);
-  }
-}
+// Preview helpers removed
 
 export function normalizeScheduleMetadataPayload(payload = {}) {
   const emptyMetadata = createEmptyScheduleMetadata();
@@ -273,26 +246,24 @@ export function normalizeScheduleSessionPayload(payload = {}) {
   const emptySession = createEmptyScheduleSession();
   const normalizedYear = String(payload.year || emptySession.year).trim();
   const responsibleTeacherName = String(
-    payload.responsible_teacher_name
+    payload.teacher_name
+    || payload.responsible_teacher_name
     || payload.responsibleTeacherName
-    || payload.teacher_name
     || payload.responsible_teacher?.full_name
-    || payload.responsible_teacher?.name
     || payload.teacher?.full_name
-    || payload.teacher?.name
     || ''
   ).trim();
 
   return {
     ...emptySession,
     id: String(payload.id ?? ''),
-    sessionName: String(payload.session_name || payload.sessionName || payload.name || '').trim(),
+    sessionName: String(payload.title || payload.session_name || payload.sessionName || payload.name || '').trim(),
     sessionType: String(payload.session_type || payload.sessionType || payload.type || emptySession.sessionType).trim(),
     responsibleTeacherId: String(
-      payload.responsible_teacher_id
+      payload.teacher
+      || payload.responsible_teacher_id
       || payload.responsibleTeacherId
       || payload.responsible_teacher?.id
-      || payload.teacher?.id
       || ''
     ).trim(),
     responsibleTeacherName,
@@ -319,19 +290,17 @@ function serializeScheduleSessionPayload(scheduleSession) {
   const normalizedSession = normalizeScheduleSessionPayload(scheduleSession);
 
   return {
-    session_name: normalizedSession.sessionName,
+    title: normalizedSession.sessionName,
     session_type: normalizedSession.sessionType,
-    responsible_teacher_id: normalizedSession.responsibleTeacherId || '',
-    responsible_teacher_name: normalizedSession.responsibleTeacherName,
+    teacher: Number(normalizedSession.responsibleTeacherId) || null,
     year: normalizedSession.year,
     section: normalizedSession.section,
-    speciality: normalizedSession.specialty,
-    group_codes: sortGroups(normalizedSession.assignedGroups),
+    specialty: normalizedSession.specialty,
+    assigned_groups: sortGroups(normalizedSession.assignedGroups),
     day: normalizedSession.day,
     start_time: normalizedSession.startTime,
     end_time: normalizedSession.endTime,
     room: normalizedSession.room,
-    academic_term: normalizedSession.termLabel || DEFAULT_TERM_LABEL,
   };
 }
 
@@ -377,23 +346,25 @@ function matchesScheduleFilters(session, filters = {}) {
 }
 
 export async function fetchScheduleMetadata() {
-  if (TEMP_FRONTEND_PREVIEW_MODE) {
-    return createEmptyScheduleMetadata();
+  const emptyMetadata = createEmptyScheduleMetadata();
+  try {
+    const response = await api.get(SCHEDULES_ENDPOINTS.users);
+    const users = Array.isArray(response.data?.results) ? response.data.results : response.data;
+    const teachers = (users || []).filter(u => u.role === 'TEACHER').map(u => ({
+      id: u.id,
+      name: `${u.first_name} ${u.last_name}`.trim()
+    }));
+    return {
+      ...emptyMetadata,
+      teachers: normalizeTeacherList(teachers),
+    };
+  } catch (error) {
+    console.error('Failed to load metadata', error);
+    return emptyMetadata;
   }
-
-  const response = await api.get(SCHEDULES_ENDPOINTS.metadata);
-  return normalizeScheduleMetadataPayload(response.data);
 }
 
 export async function fetchScheduleSessions(filters = {}) {
-  if (TEMP_FRONTEND_PREVIEW_MODE) {
-    return sortSessionsByTime(
-      readPreviewSessions()
-        .map((session) => normalizeScheduleSessionPayload(session))
-        .filter((session) => matchesScheduleFilters(session, filters))
-    );
-  }
-
   const params = new URLSearchParams();
 
   ['day', 'year', 'specialty', 'section'].forEach((filterName) => {
@@ -403,95 +374,66 @@ export async function fetchScheduleSessions(filters = {}) {
       return;
     }
 
-    const queryKey = filterName === 'specialty' ? 'speciality' : filterName;
-    params.append(queryKey, filterValue);
+    params.append(filterName, filterValue);
   });
 
   const endpoint = params.toString()
     ? `${SCHEDULES_ENDPOINTS.sessions}?${params.toString()}`
     : SCHEDULES_ENDPOINTS.sessions;
   const response = await api.get(endpoint);
-  const responseSessions = Array.isArray(response.data?.sessions) ? response.data.sessions : response.data;
+  const responseSessions = Array.isArray(response.data?.results) ? response.data.results : response.data;
 
   return sortSessionsByTime((responseSessions || []).map((session) => normalizeScheduleSessionPayload(session)));
 }
 
 export async function fetchScheduleSessionById(sessionId) {
-  if (TEMP_FRONTEND_PREVIEW_MODE) {
-    const matchedSession = readPreviewSessions().find((session) => String(session.id) === String(sessionId));
-
-    if (!matchedSession) {
-      throw new Error('Session not found');
-    }
-
-    return normalizeScheduleSessionPayload(matchedSession);
-  }
-
   const response = await api.get(SCHEDULES_ENDPOINTS.sessionDetail(sessionId));
   return normalizeScheduleSessionPayload(response.data);
 }
 
 export async function createScheduleSession(scheduleSession) {
   const payloadData = serializeScheduleSessionPayload(scheduleSession);
-
-  if (TEMP_FRONTEND_PREVIEW_MODE) {
-    const createdSession = normalizeScheduleSessionPayload({
-      id: buildPreviewSessionId(),
-      ...payloadData,
-    });
-    const nextSessions = sortSessionsByTime([
-      ...readPreviewSessions().map((session) => normalizeScheduleSessionPayload(session)),
-      createdSession,
-    ]).map((session) => ({
-      id: session.id,
-      ...serializeScheduleSessionPayload(session),
-    }));
-
-    writePreviewSessions(nextSessions);
-    return createdSession;
-  }
-
   const response = await api.post(SCHEDULES_ENDPOINTS.sessions, payloadData);
-  return normalizeScheduleSessionPayload(response.data?.session || response.data);
+  return normalizeScheduleSessionPayload(response.data);
 }
 
 export async function updateScheduleSession(sessionId, nextSession, initialSession = null) {
   const patchPayload = buildScheduleSessionPatchPayload(initialSession || createEmptyScheduleSession(), nextSession);
-
-  if (TEMP_FRONTEND_PREVIEW_MODE) {
-    const currentSessions = readPreviewSessions().map((session) => normalizeScheduleSessionPayload(session));
-    const matchedSession = currentSessions.find((session) => String(session.id) === String(sessionId));
-
-    if (!matchedSession) {
-      throw new Error('Session not found');
-    }
-
-    const updatedSession = normalizeScheduleSessionPayload({
-      ...matchedSession,
-      ...patchPayload,
-      id: sessionId,
-    });
-    const nextSessions = sortSessionsByTime(
-      currentSessions.map((session) => (String(session.id) === String(sessionId) ? updatedSession : session))
-    ).map((session) => ({
-      id: session.id,
-      ...serializeScheduleSessionPayload(session),
-    }));
-
-    writePreviewSessions(nextSessions);
-    return updatedSession;
-  }
-
   const response = await api.patch(SCHEDULES_ENDPOINTS.sessionDetail(sessionId), patchPayload);
-  return normalizeScheduleSessionPayload(response.data?.session || response.data);
+  return normalizeScheduleSessionPayload(response.data);
 }
 
 export async function deleteScheduleSession(sessionId) {
-  if (TEMP_FRONTEND_PREVIEW_MODE) {
-    const nextSessions = readPreviewSessions().filter((session) => String(session.id) !== String(sessionId));
-    writePreviewSessions(nextSessions);
-    return;
-  }
-
   await api.delete(SCHEDULES_ENDPOINTS.sessionDetail(sessionId));
 }
+
+/**
+ * Start a live attendance session for the given session ID.
+ * Creates/gets a SessionInstance for today and pre-creates AttendanceRecord rows.
+ * Returns { instance_id, session_id, date, status, students[] }
+ */
+export async function startSessionAttendance(sessionId) {
+  const response = await api.post(SCHEDULES_ENDPOINTS.startAttendance(sessionId));
+  return response.data;
+}
+
+/**
+ * Update a single AttendanceRecord's status.
+ * status: 'present' | 'absent' | 'unmarked'
+ */
+export async function updateAttendanceRecord(recordId, status) {
+  const response = await api.patch(SCHEDULES_ENDPOINTS.attendanceDetail(recordId), { status });
+  return response.data;
+}
+
+/**
+ * Submit and close a SessionInstance (set status='completed', save note).
+ */
+export async function submitAttendanceInstance(instanceId, teacherNote = '') {
+  const response = await api.patch(SCHEDULES_ENDPOINTS.instanceDetail(instanceId), {
+    status: 'completed',
+    teacher_note: teacherNote,
+  });
+  return response.data;
+}
+

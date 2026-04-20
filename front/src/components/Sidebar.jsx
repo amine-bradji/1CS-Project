@@ -61,16 +61,22 @@ export default function Sidebar({ activePage, onNavigate }) {
 
       <div className="sidebar-user">
         <div className="user-avatar">
-          {adminPhotoUrl ? (
-            <img
-              src={adminPhotoUrl}
-              alt={displayUserAlt}
-            />
-          ) : (
-            <span className="user-avatar-fallback" aria-hidden="true">
-              {'\u{1F464}'}
-            </span>
-          )}
+          {(() => {
+            let photoUrl = adminPhotoUrl || user?.profile_picture || null;
+            if (typeof photoUrl === 'string' && photoUrl.startsWith('/')) {
+              photoUrl = `http://127.0.0.1:8000${photoUrl}`;
+            }
+            return photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={displayUserAlt}
+              />
+            ) : (
+              <span className="user-avatar-fallback" aria-hidden="true">
+                {'\u{1F464}'}
+              </span>
+            );
+          })()}
         </div>
         <div className="user-info">
           <span className="user-name">{displayUserName}</span>

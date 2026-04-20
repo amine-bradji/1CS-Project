@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useAppPreferences } from '../context/AppPreferencesContext';
+import api from '../api/axios.js';
 import AcademicYearPicker from '../components/AcademicYearPicker';
 import styles from './SystemSettingsPage.module.css';
 import UserPasswordPlaceholderDialog from './UserPasswordPlaceholderDialog';
@@ -80,6 +82,7 @@ function composeFullName(firstName, familyName) {
 export default function SystemSettingsPage() {
   const sectionRefs = useRef({});
   const fileInputRef = useRef(null);
+  const { user } = useAuth();
   const {
     adminDisplayName,
     adminPhotoUrl,
@@ -110,14 +113,23 @@ export default function SystemSettingsPage() {
         }
 
         const normalizedSettings = normalizeSystemSettingsPayload(response);
-        const nameSeed = normalizedSettings.adminAccount.fullName || adminDisplayName;
+        const fallbackFirstName = [user?.first_name, user?.middle_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        const fallbackFamilyName = String(user?.last_name || '').trim();
+        const fallbackFullName = composeFullName(fallbackFirstName, fallbackFamilyName);
+
+        const nameSeed = normalizedSettings.adminAccount.fullName || adminDisplayName || fallbackFullName;
         const parsedName = splitFullName(nameSeed);
-        const nextFirstName = normalizedSettings.adminAccount.firstName || parsedName.firstName;
-        const nextFamilyName = normalizedSettings.adminAccount.familyName || parsedName.familyName;
+        const nextFirstName = normalizedSettings.adminAccount.firstName || parsedName.firstName || fallbackFirstName;
+        const nextFamilyName = normalizedSettings.adminAccount.familyName || parsedName.familyName || fallbackFamilyName;
         const nextAdminDisplayName = composeFullName(nextFirstName, nextFamilyName) || nameSeed;
-        const nextAdminEmail = buildUserEmail(nextFirstName, nextFamilyName) || normalizedSettings.adminAccount.email;
+        const nextAdminEmail = buildUserEmail(nextFirstName, nextFamilyName) || normalizedSettings.adminAccount.email || user?.email || '';
+        const nextAdminPhone = normalizedSettings.adminAccount.phoneNumber || user?.phone_number || user?.phone || '';
+        const nextJobTitle = normalizedSettings.adminAccount.jobTitle || user?.job_title || user?.title || '';
         const nextLanguage = normalizedSettings.adminAccount.preferredLanguage || language;
-        const nextPhoto = normalizedSettings.adminAccount.profilePhotoUrl || adminPhotoUrl;
+        const nextPhoto = normalizedSettings.adminAccount.profilePhotoUrl || adminPhotoUrl || user?.profile_picture || '';
 
         setSettingsState({
           ...normalizedSettings,
@@ -127,6 +139,8 @@ export default function SystemSettingsPage() {
             familyName: nextFamilyName,
             fullName: nextAdminDisplayName,
             email: nextAdminEmail,
+            phoneNumber: nextAdminPhone,
+            jobTitle: nextJobTitle,
             preferredLanguage: nextLanguage,
             profilePhotoUrl: nextPhoto,
           },
@@ -141,29 +155,37 @@ export default function SystemSettingsPage() {
           setLanguage(normalizedSettings.adminAccount.preferredLanguage);
         }
 
-        if (normalizedSettings.adminAccount.profilePhotoUrl) {
-          setAdminPhotoUrl(normalizedSettings.adminAccount.profilePhotoUrl);
+        if (nextPhoto) {
+          setAdminPhotoUrl(nextPhoto);
         }
       } catch {
         if (isMounted) {
-          const parsedFallbackName = splitFullName(adminDisplayName);
+          const fallbackFirstName = [user?.first_name, user?.middle_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          const fallbackFamilyName = String(user?.last_name || '').trim();
+          const fallbackFullName = composeFullName(fallbackFirstName, fallbackFamilyName);
+          const parsedFallbackName = splitFullName(adminDisplayName || fallbackFullName);
 
           setSettingsState((currentState) => ({
             ...createEmptySystemSettings(),
             adminAccount: {
               ...currentState.adminAccount,
-              firstName: currentState.adminAccount.firstName || parsedFallbackName.firstName,
-              familyName: currentState.adminAccount.familyName || parsedFallbackName.familyName,
+              firstName: currentState.adminAccount.firstName || parsedFallbackName.firstName || fallbackFirstName,
+              familyName: currentState.adminAccount.familyName || parsedFallbackName.familyName || fallbackFamilyName,
               fullName: composeFullName(
-                currentState.adminAccount.firstName || parsedFallbackName.firstName,
-                currentState.adminAccount.familyName || parsedFallbackName.familyName,
-              ) || adminDisplayName,
+                currentState.adminAccount.firstName || parsedFallbackName.firstName || fallbackFirstName,
+                currentState.adminAccount.familyName || parsedFallbackName.familyName || fallbackFamilyName,
+              ) || adminDisplayName || fallbackFullName,
               email: buildUserEmail(
-                currentState.adminAccount.firstName || parsedFallbackName.firstName,
-                currentState.adminAccount.familyName || parsedFallbackName.familyName,
-              ) || currentState.adminAccount.email,
+                currentState.adminAccount.firstName || parsedFallbackName.firstName || fallbackFirstName,
+                currentState.adminAccount.familyName || parsedFallbackName.familyName || fallbackFamilyName,
+              ) || currentState.adminAccount.email || user?.email || '',
+              phoneNumber: user?.phone_number || user?.phone || '',
+              jobTitle: user?.job_title || user?.title || '',
               preferredLanguage: language,
-              profilePhotoUrl: adminPhotoUrl,
+              profilePhotoUrl: adminPhotoUrl || user?.profile_picture || '',
             },
           }));
         }
@@ -295,7 +317,7 @@ export default function SystemSettingsPage() {
     setLanguage(nextLanguage);
   }
 
-  function handlePhotoSelection(event) {
+  async function handlePhotoSelection(event) {
     const selectedFile = event.target.files?.[0] || null;
 
     if (!selectedFile || !String(selectedFile.type || '').startsWith('image/')) {
@@ -303,18 +325,37 @@ export default function SystemSettingsPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const nextPhotoUrl = typeof reader.result === 'string' ? reader.result : '';
+    try {
+      const formData = new FormData();
+      formData.append('profile_picture', selectedFile);
+      const response = await api.put('/accounts/me/picture/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
+      const nextPhotoUrl = response.data.profile_picture;
       updateAdminAccountField('profilePhotoUrl', nextPhotoUrl);
       setAdminPhotoUrl(nextPhotoUrl);
-    };
-    reader.readAsDataURL(selectedFile);
+    } catch (error) {
+      console.error('Failed to update profile picture', error);
+      // Fallback to local data URL if backend fails
+      const reader = new FileReader();
+      reader.onload = () => {
+        const nextPhotoUrl = typeof reader.result === 'string' ? reader.result : '';
+        updateAdminAccountField('profilePhotoUrl', nextPhotoUrl);
+        setAdminPhotoUrl(nextPhotoUrl);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+
     event.target.value = '';
   }
 
-  function handleRemovePhoto() {
+  async function handleRemovePhoto() {
+    try {
+      await api.put('/accounts/me/picture/', { profile_picture: '' });
+    } catch (error) {
+      console.error('Failed to remove profile picture', error);
+    }
     updateAdminAccountField('profilePhotoUrl', '');
     setAdminPhotoUrl('');
   }

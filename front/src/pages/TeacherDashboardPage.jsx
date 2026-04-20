@@ -8,11 +8,11 @@ import { useAppPreferences } from '../context/AppPreferencesContext';
 import {
   createEmptyTeacherNotificationsCollection,
   deleteTeacherNotification,
-  fetchTeacherDashboardOverview,
   fetchTeacherNotifications,
   markTeacherNotificationAsRead,
   TEACHER_PORTAL_ENDPOINTS,
 } from '../services/teacherPortalEndpoint';
+import { useTeacherPortal } from '../context/TeacherPortalContext';
 import styles from './TeacherDashboardPage.module.css';
 
 function formatTodayLabel(locale) {
@@ -42,9 +42,9 @@ function getSessionStatusMeta(status, t) {
   }
 
   return {
-    actionLabel: t('teacherDashboard.sessionStatusUpcoming'),
+    actionLabel: t('teacherDashboard.sessionStatusStartNow'),
     actionVariant: 'Upcoming',
-    disabled: true,
+    disabled: false,
   };
 }
 
@@ -70,7 +70,6 @@ export default function TeacherDashboardPage() {
   const { t, locale } = useAppPreferences();
   const notificationsPanelRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [overview, setOverview] = useState(null);
   const [notificationsCollection, setNotificationsCollection] = useState(createEmptyTeacherNotificationsCollection());
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsLoaded, setNotificationsLoaded] = useState(false);
@@ -78,39 +77,13 @@ export default function TeacherDashboardPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationView, setNotificationView] = useState('all');
   const [notificationActionId, setNotificationActionId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  
+  const { overview, loading, error, loadOverview } = useTeacherPortal();
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadOverview() {
-      try {
-        setLoading(true);
-        setError('');
-        const nextOverview = await fetchTeacherDashboardOverview();
-
-        if (isMounted) {
-          setOverview(nextOverview);
-        }
-      } catch (requestError) {
-        if (isMounted) {
-          setOverview(null);
-          setError(requestError.response?.data?.error || requestError.message || t('teacherDashboard.loadError'));
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
     loadOverview();
+  }, [loadOverview]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -440,14 +413,14 @@ export default function TeacherDashboardPage() {
         ) : visibleSessions.length === 0 ? (
           <TeacherStateCard
             title=""
-            endpoint={TEACHER_PORTAL_ENDPOINTS.dashboardOverview}
+            endpoint="/api/schedules/sessions/"
             tone="soft"
           />
         ) : (
           <div className={styles.sessionList}>
             {visibleSessions.map((session) => {
-              const statusMeta = getSessionStatusMeta(session.status, t);
               const hasSessionId = Boolean(session.id);
+              const statusMeta = getSessionStatusMeta(session.status, t);
 
               return (
                 <article
@@ -466,8 +439,8 @@ export default function TeacherDashboardPage() {
                   </div>
                   <button
                     type="button"
-                    className={`${styles.sessionAction} ${styles[`sessionAction${statusMeta.actionVariant}`]}`}
-                    disabled={statusMeta.disabled || !hasSessionId}
+                    className={styles.sessionAction}
+                    disabled={!hasSessionId || statusMeta.disabled}
                     onClick={() => navigate(`/teacher/attendance${hasSessionId ? `?sessionId=${session.id}` : ''}`)}
                   >
                     {statusMeta.actionLabel}

@@ -1,4 +1,4 @@
-export const TEMP_FRONTEND_PREVIEW_MODE = true;
+export const TEMP_FRONTEND_PREVIEW_MODE = false;
 
 export const TEMP_PREVIEW_USER = {
   id: 'preview-teacher',

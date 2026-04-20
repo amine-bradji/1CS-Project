@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from '../components/routing/ProtectedRoute.jsx';
 import PublicRoute from '../components/routing/PublicRoute.jsx';
 import RoleHomeRedirect from '../components/routing/RoleHomeRedirect.jsx';
@@ -12,7 +12,9 @@ const WrongInfoPage = lazy(() => import('../pages/WrongInfoPage'));
 const DashboardShell = lazy(() => import('../pages/DashboardShell'));
 const TeacherShell = lazy(() => import('../pages/TeacherShell'));
 const TeacherDashboardPage = lazy(() => import('../pages/TeacherDashboardPage'));
+import { TeacherPortalProvider } from '../context/TeacherPortalContext';
 const TeacherGroupsPage = lazy(() => import('../pages/TeacherGroupsPage'));
+const LiveAttendancePage1 = lazy(() => import('../pages/LiveAttendancePage1').then(m => ({ default: m.LiveAttendancePage1 })));
 const TeacherFeaturePlaceholderPage = lazy(() => import('../pages/TeacherFeaturePlaceholderPage'));
 const TeacherSettingsPage = lazy(() => import('../pages/TeacherSettingsPage'));
 const ResetPassword = lazy(() => import('../pages/ResetPassword').then((module) => ({ default: module.ResetPassword })));
@@ -51,18 +53,12 @@ export default function AppRoutes() {
         )}
       >
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<TeacherDashboardPage />} />
+        {/* Wrap dashboard + attendance in ONE shared TeacherPortalProvider so they share context state */}
+        <Route element={<TeacherPortalProvider><Outlet /></TeacherPortalProvider>}>
+          <Route path="dashboard" element={<TeacherDashboardPage />} />
+          <Route path="attendance" element={<LiveAttendancePage1 />} />
+        </Route>
         <Route path="groups" element={<TeacherGroupsPage />} />
-        <Route
-          path="attendance"
-          element={(
-            <TeacherFeaturePlaceholderPage
-              eyebrow={t('teacherPlaceholders.flow')}
-              title={t('teacherPlaceholders.liveAttendance')}
-              endpoint="/teacher/sessions/:sessionId/attendance/"
-            />
-          )}
-        />
         <Route
           path="sessions"
           element={(

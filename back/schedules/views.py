@@ -1,10 +1,13 @@
-from rest_framework import viewsets
+from django.utils import timezone
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from .models import Session, SessionInstance, AttendanceRecord, AbsenceCounter
 from .serializers import (
-    SessionSerializer, 
-    SessionInstanceSerializer, 
-    AttendanceRecordSerializer, 
+    SessionSerializer,
+    SessionInstanceSerializer,
+    AttendanceRecordSerializer,
     AbsenceCounterSerializer
 )
 from .permissions import IsTeacherOrAdmin
@@ -36,8 +39,85 @@ class SessionViewSet(viewsets.ModelViewSet):
                 return Session.objects.filter(id__in=valid_ids)
             except Exception:
                 return Session.objects.none()
-                
+
         return Session.objects.all()
+
+    @action(detail=True, methods=['get'], url_path='students')
+    def students(self, request, pk=None):
+        """Return all students whose group is in session.assigned_groups."""
+        session = self.get_object()
+        from accounts.models import StudentProfile
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        groups = session.assigned_groups or []
+        if groups:
+            profiles = StudentProfile.objects.filter(group__in=groups).select_related('user')
+        else:
+            profiles = StudentProfile.objects.none()
+
+        students_data = [
+            {
+                'id': p.user.id,
+                'full_name': getattr(p.user, 'full_name', '') or f"{p.user.first_name} {p.user.last_name}".strip(),
+                'registration_number': p.registration_number or '',
+                'group': p.group or '',
+            }
+            for p in profiles
+        ]
+        return Response(students_data)
+
+    @action(detail=True, methods=['post'], url_path='start_attendance')
+    def start_attendance(self, request, pk=None):
+        """
+        Create (or get) a SessionInstance for today, then create AttendanceRecord
+        rows for every student in the session's assigned groups.
+        Returns instance_id and the full student list with their current status.
+        """
+        session = self.get_object()
+        today = timezone.localdate()
+
+        instance, _ = SessionInstance.objects.get_or_create(
+            session=session,
+            date=today,
+            defaults={'status': 'active', 'teacher_note': ''}
+        )
+        # Mark active if it was upcoming
+        if instance.status == 'upcoming':
+            instance.status = 'active'
+            instance.save(update_fields=['status'])
+
+        from accounts.models import StudentProfile
+        groups = session.assigned_groups or []
+        if groups:
+            profiles = StudentProfile.objects.filter(group__in=groups).select_related('user')
+        else:
+            profiles = []
+
+        students_data = []
+        for p in profiles:
+            record, _ = AttendanceRecord.objects.get_or_create(
+                session_instance=instance,
+                student=p.user,
+                defaults={'status': 'unmarked'}
+            )
+            students_data.append({
+                'record_id': record.id,
+                'student_id': p.user.id,
+                'full_name': getattr(p.user, 'full_name', '') or f"{p.user.first_name} {p.user.last_name}".strip(),
+                'registration_number': p.registration_number or '',
+                'group': p.group or '',
+                'status': record.status,
+            })
+
+        return Response({
+            'instance_id': instance.id,
+            'session_id': session.id,
+            'date': str(today),
+            'status': instance.status,
+            'students': students_data,
+        }, status=status.HTTP_200_OK)
+
 
 class SessionInstanceViewSet(viewsets.ModelViewSet):
     serializer_class = SessionInstanceSerializer
@@ -65,7 +145,7 @@ class SessionInstanceViewSet(viewsets.ModelViewSet):
                 return SessionInstance.objects.filter(id__in=valid_ids)
             except Exception:
                 return SessionInstance.objects.none()
-                
+
         return SessionInstance.objects.all()
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):

@@ -67,7 +67,10 @@ export default function TeacherSidebar() {
   const { teacherDisplayName, teacherPhotoUrl, t } = useAppPreferences();
   const fallbackDisplayName = `${user?.first_name || ''} ${user?.middle_name || ''} ${user?.last_name || ''}`.trim();
   const displayName = teacherDisplayName || fallbackDisplayName || t('teacherSettings.teacherFallbackName');
-  const displayPhoto = teacherPhotoUrl || user?.profile_picture || '';
+  let displayPhoto = teacherPhotoUrl || user?.profile_picture || '';
+  if (typeof displayPhoto === 'string' && displayPhoto.startsWith('/')) {
+    displayPhoto = `http://127.0.0.1:8000${displayPhoto}`;
+  }
   const avatarLabel = displayName || t('teacherSettings.teacherFallbackName');
 
   function handleLogout() {

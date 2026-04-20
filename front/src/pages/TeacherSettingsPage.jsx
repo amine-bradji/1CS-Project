@@ -273,7 +273,7 @@ export default function TeacherSettingsPage() {
     }));
   }
 
-  function handlePhotoSelection(event) {
+  async function handlePhotoSelection(event) {
     const selectedFile = event.target.files?.[0] || null;
 
     if (!selectedFile || !String(selectedFile.type || '').startsWith('image/')) {
@@ -281,18 +281,42 @@ export default function TeacherSettingsPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const nextPhotoUrl = typeof reader.result === 'string' ? reader.result : '';
+    try {
+      const formData = new FormData();
+      formData.append('profile_picture', selectedFile);
+      // Wait, api is not imported in this file yet! I need to import it.
+      // But wait, the previous replace will fail if api is not defined.
+      // I will do a separate tool call to import it if it's not imported.
+      const { default: api } = await import('../api/axios.js');
+      const response = await api.put('/accounts/me/picture/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
+      const nextPhotoUrl = response.data.profile_picture;
       updateTeacherField('profilePhotoUrl', nextPhotoUrl);
       setTeacherPhotoUrl(nextPhotoUrl);
-    };
-    reader.readAsDataURL(selectedFile);
+    } catch (error) {
+      console.error('Failed to update profile picture', error);
+      // Fallback to local data URL if backend fails
+      const reader = new FileReader();
+      reader.onload = () => {
+        const nextPhotoUrl = typeof reader.result === 'string' ? reader.result : '';
+        updateTeacherField('profilePhotoUrl', nextPhotoUrl);
+        setTeacherPhotoUrl(nextPhotoUrl);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+
     event.target.value = '';
   }
 
-  function handleRemovePhoto() {
+  async function handleRemovePhoto() {
+    try {
+      const { default: api } = await import('../api/axios.js');
+      await api.put('/accounts/me/picture/', { profile_picture: '' });
+    } catch (error) {
+      console.error('Failed to remove profile picture', error);
+    }
     updateTeacherField('profilePhotoUrl', '');
     setTeacherPhotoUrl('');
   }

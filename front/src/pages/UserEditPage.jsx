@@ -58,7 +58,10 @@ export default function UserEditPage({
   const fileInputRef = useRef(null);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const displayName = `${formValues.firstName || user.firstName || ''} ${formValues.lastName || user.lastName || ''}`.trim() || user.name || t('common.user');
-  const profileImage = formValues.profilePicture || user.profilePicture || user.profile_picture || buildFallbackAvatar();
+  let profileImage = formValues.profilePicture || user.profilePicture || user.profile_picture || buildFallbackAvatar();
+  if (typeof profileImage === 'string' && profileImage.startsWith('/')) {
+    profileImage = `http://127.0.0.1:8000${profileImage}`;
+  }
   const generatedEmail = buildUserEmail(
     formValues.firstName || user.firstName || '',
     formValues.lastName || user.lastName || ''

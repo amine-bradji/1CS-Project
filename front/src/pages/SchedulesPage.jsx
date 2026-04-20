@@ -6,14 +6,9 @@ import {
   buildScheduleSessionPatchPayload,
   createEmptyScheduleMetadata,
   createEmptyScheduleSession,
-  createScheduleSession,
-  deleteScheduleSession,
-  fetchScheduleMetadata,
-  fetchScheduleSessionById,
-  fetchScheduleSessions,
-  updateScheduleSession,
   yearSupportsSpecialty,
 } from '../services/schedulesEndpoint.js';
+import { useSchedules } from '../context/SchedulesContext.jsx';
 
 const BACK_ICON = '\u2190';
 const EDIT_ICON = '\u270E';
@@ -158,22 +153,22 @@ function getFieldClassName(fieldName, formErrors, baseClassName, invalidClassNam
 export default function SchedulesPage() {
   const { t } = useAppPreferences();
   const { addNotification } = useNotifications();
+  const { metadata: contextMetadata, sessions, loading: directoryLoading, error: contextError, loadMetadata, loadSessions, createSession, updateSession, deleteSession } = useSchedules();
+  
   const teacherSearchRef = useRef(null);
   const [metadata, setMetadata] = useState(createEmptyScheduleMetadata());
   const [filters, setFilters] = useState({
-    day: createEmptyScheduleMetadata().days[0],
+    day: '',
     year: '',
     specialty: '',
     section: '',
   });
-  const [sessions, setSessions] = useState([]);
   const [viewMode, setViewMode] = useState('directory');
   const [selectedSessionId, setSelectedSessionId] = useState('');
-  const [formState, setFormState] = useState(buildSessionDraft(createEmptyScheduleMetadata().days[0], createEmptyScheduleMetadata().termLabel));
-  const [initialFormState, setInitialFormState] = useState(buildSessionDraft(createEmptyScheduleMetadata().days[0], createEmptyScheduleMetadata().termLabel));
+  const [formState, setFormState] = useState(buildSessionDraft('Sunday', 'Active Academic Term'));
+  const [initialFormState, setInitialFormState] = useState(buildSessionDraft('Sunday', 'Active Academic Term'));
   const [groupInput, setGroupInput] = useState('');
   const [isTeacherSearchOpen, setIsTeacherSearchOpen] = useState(false);
-  const [directoryLoading, setDirectoryLoading] = useState(false);
   const [editorLoading, setEditorLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [directoryError, setDirectoryError] = useState('');
@@ -213,74 +208,44 @@ export default function SchedulesPage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadMetadata() {
+    async function initialize() {
       try {
-        const nextMetadata = await fetchScheduleMetadata();
+        const nextMetadata = await loadMetadata();
 
         if (!isMounted) {
           return;
         }
 
-        setMetadata(nextMetadata);
+        setMetadata(nextMetadata || createEmptyScheduleMetadata());
         setFilters((currentFilters) => ({
           ...currentFilters,
-          day: currentFilters.day || nextMetadata.days[0] || 'Sunday',
+          day: currentFilters.day || nextMetadata?.days?.[0] || 'Sunday',
         }));
       } catch (error) {
-        console.error('Failed to load schedule metadata:', error);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setMetadata(createEmptyScheduleMetadata());
+        if (isMounted) setMetadata(createEmptyScheduleMetadata());
       }
     }
 
-    loadMetadata();
+    if (!contextMetadata) {
+      initialize();
+    } else {
+      setMetadata(contextMetadata);
+      setFilters((currentFilters) => ({
+        ...currentFilters,
+        day: currentFilters.day || contextMetadata?.days?.[0] || 'Sunday',
+      }));
+    }
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadMetadata, contextMetadata]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadSessions() {
-      setDirectoryLoading(true);
-      setDirectoryError('');
-
-      try {
-        const nextSessions = await fetchScheduleSessions(filters);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSessions(nextSessions);
-      } catch (error) {
-        console.error('Failed to load schedule sessions:', error);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSessions([]);
-        setDirectoryError('Failed to load sessions.');
-      } finally {
-        if (isMounted) {
-          setDirectoryLoading(false);
-        }
-      }
-    }
-
-    loadSessions();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [filters]);
+    loadSessions(filters).catch(error => {
+      setDirectoryError('Failed to load sessions.');
+    });
+  }, [filters, loadSessions]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -377,7 +342,8 @@ export default function SchedulesPage() {
     setEditorLoading(true);
 
     try {
-      const selectedSession = await fetchScheduleSessionById(sessionId);
+      const selectedSession = sessions.find(s => String(s.id) === String(sessionId));
+      if (!selectedSession) throw new Error('Session not found in list');
       setFormState(selectedSession);
       setInitialFormState(selectedSession);
     } catch (error) {
@@ -509,9 +475,7 @@ export default function SchedulesPage() {
   }
 
   async function refreshSessions(nextFilters = filters) {
-    const nextSessions = await fetchScheduleSessions(nextFilters);
-    setSessions(nextSessions);
-    return nextSessions;
+    return loadSessions(nextFilters);
   }
 
   async function handleDeleteSession(session) {
@@ -522,7 +486,7 @@ export default function SchedulesPage() {
     }
 
     try {
-      await deleteScheduleSession(session.id);
+      await deleteSession(session.id);
       await refreshSessions(filters);
       addNotification({
         icon: DELETE_ICON,
@@ -559,8 +523,8 @@ export default function SchedulesPage() {
 
     try {
       const savedSession = isEditing
-        ? await updateScheduleSession(selectedSessionId, formState, initialFormState)
-        : await createScheduleSession(formState);
+        ? await updateSession(selectedSessionId, formState, initialFormState)
+        : await createSession(formState);
 
       await refreshSessions(filters);
       handleCloseEditor();
@@ -664,36 +628,34 @@ export default function SchedulesPage() {
                     {renderFieldError('sessionType')}
                   </label>
 
-                  <label className={`${styles.field} ${styles.fieldFull}`} ref={teacherSearchRef}>
+                  <label className={`${styles.field} ${styles.fieldFull}`}>
                     <span className={styles.fieldLabel}>Responsible Teacher</span>
-                    <input
-                      type="text"
+                    <select
                       className={getFieldClassName(
                         'responsibleTeacherName',
                         formErrors,
-                        styles.input,
+                        styles.select,
                         styles.inputInvalid
                       )}
-                      value={formState.responsibleTeacherName}
-                      onChange={(event) => handleTeacherChange(event.target.value)}
-                      onFocus={() => setIsTeacherSearchOpen(true)}
-                      autoComplete="off"
-                      placeholder="Type to search a teacher"
-                    />
-                    {isTeacherSearchOpen && filteredTeacherOptions.length > 0 && (
-                      <div className={styles.teacherResults}>
-                        {filteredTeacherOptions.map((teacher) => (
-                          <button
-                            key={teacher.id}
-                            type="button"
-                            className={styles.teacherResultButton}
-                            onClick={() => handleTeacherSelect(teacher)}
-                          >
-                            {teacher.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                      value={formState.responsibleTeacherId}
+                      onChange={(event) => {
+                        const selectedTeacher = metadata.teachers.find(
+                          (t) => String(t.id) === event.target.value
+                        );
+                        if (selectedTeacher) {
+                          handleTeacherSelect(selectedTeacher);
+                        } else {
+                          setFormState((s) => ({ ...s, responsibleTeacherId: '', responsibleTeacherName: '' }));
+                        }
+                      }}
+                    >
+                      <option value="">— Select a teacher —</option>
+                      {(metadata.teachers || []).map((teacher) => (
+                        <option key={teacher.id} value={teacher.id}>
+                          {teacher.name}
+                        </option>
+                      ))}
+                    </select>
                     {renderFieldError('responsibleTeacherName')}
                   </label>
 

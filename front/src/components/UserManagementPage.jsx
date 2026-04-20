@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNotifications } from '../context/NotificationsContext';
 import { useUsers } from '../context/UsersContext';
 import { useAppPreferences } from '../context/AppPreferencesContext';
@@ -1140,7 +1140,7 @@ export default function UserManagementPage({
                           <span className={`users-avatar users-avatar--${getAvatarTone(user)}`}>
                             {user.profilePicture ? (
                               <img
-                                src={user.profilePicture}
+                                src={user.profilePicture.startsWith('/') ? `http://127.0.0.1:8000${user.profilePicture}` : user.profilePicture}
                                 alt={user.name}
                                 className="users-avatar-image"
                               />

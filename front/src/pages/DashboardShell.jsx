@@ -8,6 +8,7 @@ const UserManagementPage = lazy(() => import('../components/UserManagementPage')
 const ActivityLogsPage = lazy(() => import('./ActivityLogsPage'));
 const SystemSettingsPage = lazy(() => import('./SystemSettingsPage'));
 const SchedulesPage = lazy(() => import('./SchedulesPage'));
+import { SchedulesProvider } from '../context/SchedulesContext';
 
 function PlaceholderPage({ label, title, description }) {
   return (
@@ -76,7 +77,11 @@ export default function DashboardShell() {
         />
       );
     } else if (activePage === 'schedules') {
-      pageContent = <SchedulesPage />;
+      pageContent = (
+        <SchedulesProvider>
+          <SchedulesPage />
+        </SchedulesProvider>
+      );
     } else if (activePage === 'activity') {
       pageContent = (
         <ActivityLogsPage
