@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import styles from './ResetPassword.module.css'
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { getRoleHomePath } from '../utils/authRedirects';
 
 export function ResetPassword() {
     const [showPassword, setShowPassword] = useState(false);
@@ -43,11 +44,9 @@ export function ResetPassword() {
             });
 
             if (response.status === 200) {
-                // Update stored tokens
                 localStorage.setItem('access_token', response.data.access);
                 localStorage.setItem('refresh_token', response.data.refresh);
 
-                // If backend returns user data (not required), update local authorisation object
                 if (response.data.user) {
                   const storedUser = JSON.parse(localStorage.getItem('user_info') || '{}');
                   localStorage.setItem('user_info', JSON.stringify({
@@ -56,12 +55,10 @@ export function ResetPassword() {
                   }));
                 }
 
-                // Redirect by role
-                if (user?.role === 'ADMIN') {
-                    navigate('/dashboard');
-                } else {
-                    navigate('/home');
-                }
+                navigate(getRoleHomePath({
+                    ...user,
+                    must_change_password: false,
+                }));
             }
         } catch (error) {
             console.error("Password change error:", error.response?.data || error.message);

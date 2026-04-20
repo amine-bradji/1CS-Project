@@ -1,3 +1,6 @@
+import api from '../api/axios.js';
+import { readEndpointData, runEndpointMutation } from './backendSupport.js';
+
 export const SYSTEM_SETTINGS_ENDPOINTS = {
   base: '/system/settings/',
   adminAccount: '/system/settings/admin-account/',
@@ -100,8 +103,33 @@ export function normalizeSystemSettingsPayload(payload = {}) {
   };
 }
 
-// Frontend handoff point for the system settings flow.
-// The backend team can connect these sections to the real source later.
 export async function fetchSystemSettings() {
-  return createEmptySystemSettings();
+  return readEndpointData({
+    getPreviewData: createEmptySystemSettings,
+    request: () => api.get(SYSTEM_SETTINGS_ENDPOINTS.base),
+    normalize: normalizeSystemSettingsPayload,
+  });
+}
+
+export async function changeSystemSettingsPassword({ currentPassword, newPassword }) {
+  const oldPassword = String(currentPassword || '').trim();
+  const nextPassword = String(newPassword || '').trim();
+
+  if (!oldPassword || !nextPassword) {
+    throw new Error('Current and new passwords are required.');
+  }
+
+  return runEndpointMutation({
+    endpoint: SYSTEM_SETTINGS_ENDPOINTS.changePassword,
+    actionLabel: 'change the password',
+    getPreviewResult: {
+      success: true,
+      preview: true,
+      endpoint: SYSTEM_SETTINGS_ENDPOINTS.changePassword,
+    },
+    request: () => api.post(SYSTEM_SETTINGS_ENDPOINTS.changePassword, {
+      old_password: oldPassword,
+      new_password: nextPassword,
+    }),
+  });
 }

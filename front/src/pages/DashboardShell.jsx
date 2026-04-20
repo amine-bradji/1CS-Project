@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react';
+import { Suspense, lazy, useState, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
-import DashboardPage from './DashboardPage';
-import UserManagementPage from '../components/UserManagementPage';
-import ActivityLogsPage from './ActivityLogsPage';
-import SystemSettingsPage from './SystemSettingsPage';
 import styles from './DashboardShell.module.css';
 import { useAppPreferences } from '../context/AppPreferencesContext';
+
+const DashboardPage = lazy(() => import('./DashboardPage'));
+const UserManagementPage = lazy(() => import('../components/UserManagementPage'));
+const ActivityLogsPage = lazy(() => import('./ActivityLogsPage'));
+const SystemSettingsPage = lazy(() => import('./SystemSettingsPage'));
+const SchedulesPage = lazy(() => import('./SchedulesPage'));
 
 function PlaceholderPage({ label, title, description }) {
   return (
@@ -73,6 +75,8 @@ export default function DashboardShell() {
           onInitialViewModeApplied={handleInitialUserViewModeApplied}
         />
       );
+    } else if (activePage === 'schedules') {
+      pageContent = <SchedulesPage />;
     } else if (activePage === 'activity') {
       pageContent = (
         <ActivityLogsPage
@@ -95,7 +99,9 @@ export default function DashboardShell() {
       <div className={styles.appLayout}>
         <Sidebar activePage={activePage} onNavigate={setActivePage} />
         <main className={styles.mainContent}>
-          {pageContent}
+          <Suspense fallback={<div className="loading-screen">Loading...</div>}>
+            {pageContent}
+          </Suspense>
         </main>
       </div>
     );

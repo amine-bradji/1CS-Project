@@ -1,115 +1,12 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { LoginPage } from './pages/LoginPage';
-import Wowzers from './pages/Wowzers';
-import WrongInfoPage from './pages/WrongInfoPage';
-import DashboardShell from './pages/DashboardShell';
-import { useAuth } from './context/AuthContext';
+import { Suspense } from 'react';
+import AppLoadingScreen from './components/AppLoadingScreen.jsx';
+import AppRoutes from './routes/AppRoutes.jsx';
 import './App.css';
-import { ResetPassword } from './pages/ResetPassword';
-import { ContactSupport } from './pages/ContactSupport';
-import { LiveAttendancePage1 } from './pages/LiveAttendancePage1';
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) return <div className="loading-screen">Loading...</div>;
-
-  if (!user) {
-    return <Navigate to="/" state={{ from: location }} replace />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/home" replace />;
-  }
-
-  return children;
-};
-
-const PublicRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-
-  if (user) {
-    // Admin should always go to dashboard even if must_change_password is set in backend
-    if (user.role === 'ADMIN') {
-      return <Navigate to="/dashboard" replace />;
-    }
-
-    if (user.must_change_password) {
-      return <Navigate to="/ResetPassword" replace />;
-    }
-
-    return <Navigate to="/home" replace />;
-  }
-
-  return children;
-};
 
 export default function App() {
   return (
-    <Routes>
-      {/* Login is Public: If already logged in, redirect to dashboard */}
-      <Route
-        path="/LoginPage"
-        element={
-
-          <LoginPage />
-        }
-      />
-
-      {/* Dashboard is Protected: If not logged in, redirect to login */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={['ADMIN']}>
-            <DashboardShell />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/home"
-        element={
-          <ProtectedRoute>
-            <Wowzers />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/ResetPassword"
-        element={
-          <ProtectedRoute>
-            <ResetPassword />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/ContactSupport"
-        element={
-          <ProtectedRoute>
-            <ContactSupport />
-          </ProtectedRoute>
-        }
-      />
-
-
-      <Route
-        path="/LiveAttendancePage1"
-        element={
-          <ProtectedRoute>
-            <LiveAttendancePage1 />
-          </ProtectedRoute>
-
-        }
-      />
-
-      <Route path="/wow" element={<Wowzers />} />
-      <Route path="/dumbahh" element={<WrongInfoPage />} />
-
-      {/* Catch-all: Redirect unknown URLs to home/dashboard based on authentication */}
-      <Route path="*" element={<ProtectedRoute><Navigate to="/home" replace /></ProtectedRoute>} />
-    </Routes>
+    <Suspense fallback={<AppLoadingScreen />}>
+      <AppRoutes />
+    </Suspense>
   );
 }

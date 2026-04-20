@@ -1,10 +1,10 @@
 export const TEMP_FRONTEND_PREVIEW_MODE = true;
 
-export const TEMP_PREVIEW_ADMIN_USER = {
-  id: 'preview-admin',
-  email: 'preview.admin@esi-sba.dz',
+export const TEMP_PREVIEW_USER = {
+  id: 'preview-teacher',
+  email: 'preview.teacher@esi-sba.dz',
   first_name: 'Frontend',
   last_name: 'Preview',
-  role: 'ADMIN',
+  role: 'TEACHER',
   must_change_password: false,
 };

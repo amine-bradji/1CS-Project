@@ -1,0 +1,36 @@
+.layout {
+  --teacher-sidebar-width: 220px;
+  --teacher-bg: #f3f5f9;
+  --teacher-surface: #ffffff;
+  --teacher-border: #e3e8f0;
+  --teacher-text: #1b2538;
+  --teacher-muted: #8f9aae;
+  --teacher-primary: #1f3f72;
+  --teacher-primary-soft: #e8eef8;
+  --teacher-danger: #e05361;
+  min-height: 100vh;
+  background: var(--teacher-bg);
+}
+
+.content {
+  margin-inline-start: var(--teacher-sidebar-width);
+  min-height: 100vh;
+  padding: 0;
+}
+
+.surface {
+  min-height: 100vh;
+  background: var(--teacher-bg);
+  overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .content {
+    margin-inline-start: 0;
+    padding: 0;
+  }
+
+  .surface {
+    min-height: auto;
+  }
+}

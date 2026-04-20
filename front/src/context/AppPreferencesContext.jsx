@@ -29,15 +29,21 @@ export function AppPreferencesProvider({ children }) {
   const storedPreferences = readStoredPreferences();
   const [language, setLanguageState] = useState(storedPreferences.language || DEFAULT_LANGUAGE);
   const [adminPhotoUrl, setAdminPhotoUrlState] = useState(storedPreferences.adminPhotoUrl || '');
+  const [adminDisplayName, setAdminDisplayNameState] = useState(storedPreferences.adminDisplayName || '');
+  const [teacherPhotoUrl, setTeacherPhotoUrlState] = useState(storedPreferences.teacherPhotoUrl || '');
+  const [teacherDisplayName, setTeacherDisplayNameState] = useState(storedPreferences.teacherDisplayName || '');
 
   useEffect(() => {
     const nextPreferences = {
       language,
       adminPhotoUrl,
+      adminDisplayName,
+      teacherPhotoUrl,
+      teacherDisplayName,
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextPreferences));
-  }, [language, adminPhotoUrl]);
+  }, [adminDisplayName, adminPhotoUrl, language, teacherDisplayName, teacherPhotoUrl]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -60,15 +66,21 @@ export function AppPreferencesProvider({ children }) {
       locale,
       isRTL: language === 'ar',
       adminPhotoUrl,
+      adminDisplayName,
+      teacherPhotoUrl,
+      teacherDisplayName,
       setLanguage: setLanguageState,
       setAdminPhotoUrl: setAdminPhotoUrlState,
+      setAdminDisplayName: setAdminDisplayNameState,
+      setTeacherPhotoUrl: setTeacherPhotoUrlState,
+      setTeacherDisplayName: setTeacherDisplayNameState,
       t,
       languageOptions: ['en', 'fr', 'ar'].map((code) => ({
         value: code,
         label: t(`languageNames.${code}`),
       })),
     };
-  }, [adminPhotoUrl, language]);
+  }, [adminDisplayName, adminPhotoUrl, language, teacherDisplayName, teacherPhotoUrl]);
 
   return (
     <AppPreferencesContext.Provider value={value}>

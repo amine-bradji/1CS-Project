@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import styles from './loginPage.module.css';
-import { useAuth } from '../context/AuthContext'; // Import the hook
+import { useAuth } from '../context/AuthContext';
+import { getRoleHomePath, shouldForcePasswordReset } from '../utils/authRedirects';
 
 
 export function LoginPage() {
@@ -31,17 +32,12 @@ export function LoginPage() {
             if (response.user.must_change_password && response.user.role !== 'ADMIN') {
                 console.log("User must change password, redirecting to reset password");
                 navigate('/ResetPassword');
-            } else if (response.user.role === 'ADMIN') {
-                console.log("Admin login, redirecting to dashboard");
-                navigate('/dashboard');
             } else {
-                console.log("Non-admin login, redirecting to home placeholder");
-                navigate('/home');
+                navigate(getRoleHomePath(response.user));
             }
 
         } catch (error) {
             console.error("Login Error:", error.response?.data || error.message);
-            // Navigate to error page on login failure
             navigate('/dumbahh');
         }
     };
