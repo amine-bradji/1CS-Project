@@ -13,11 +13,18 @@ const DashboardShell = lazy(() => import('../pages/DashboardShell'));
 const TeacherShell = lazy(() => import('../pages/TeacherShell'));
 const TeacherDashboardPage = lazy(() => import('../pages/TeacherDashboardPage'));
 import { TeacherPortalProvider } from '../context/TeacherPortalContext';
+import Rattrapages from '../pages/Rattrapage.jsx';
 const TeacherGroupsPage = lazy(() => import('../pages/TeacherGroupsPage'));
 const LiveAttendancePage1 = lazy(() => import('../pages/LiveAttendancePage1').then(m => ({ default: m.LiveAttendancePage1 })));
 const TeacherFeaturePlaceholderPage = lazy(() => import('../pages/TeacherFeaturePlaceholderPage'));
 const TeacherSettingsPage = lazy(() => import('../pages/TeacherSettingsPage'));
 const ResetPassword = lazy(() => import('../pages/ResetPassword').then((module) => ({ default: module.ResetPassword })));
+const StudentAbsencePage = lazy(() => import('../pages/StudentAbsencePage'));
+const DashboardStudent = lazy(() => import('../pages/DashboardStudent'));
+const Justification = lazy(() => import('../pages/Justification'));
+const NewJustification = lazy(() => import('../pages/NewJustification'));
+const Rattrapage = lazy(() => import('../pages/Rattrapage'));
+const StudentProfile = lazy(() => import('../pages/StudentProfile'));
 
 export default function AppRoutes() {
   const { t } = useAppPreferences();
@@ -89,7 +96,12 @@ export default function AppRoutes() {
           </ProtectedRoute>
         )}
       />
-
+      <Route path="/DashboardStudent" element={<DashboardStudent />} />
+      <Route path="/StudentAbsencePage" element={<StudentAbsencePage />} />
+      <Route path="/Justification" element={<Justification />} />
+      <Route path="/NewJustification" element={<NewJustification />} />
+      <Route path="/Rattrapage" element={<Rattrapage />} />
+      <Route path="/StudentProfile" element={<StudentProfile />} />
       <Route path="/wow" element={<Wowzers />} />
       <Route path="/dumbahh" element={<WrongInfoPage />} />
       <Route
